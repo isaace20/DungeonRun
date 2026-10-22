@@ -30,6 +30,7 @@ export class Game extends Scene
         this.invulnerabilityTimer = 0;
         this.deathTimer = 0;
         this.gameOverFlag = false;
+        this.lastTemplateIndex = -1;
 
         // Objetos por etapa (se limpian y recrean en cada etapa)
         this.walls = [];
@@ -85,6 +86,96 @@ export class Game extends Scene
         const wallColor = 0x4ecca3;
         const wallThickness = 32;
 
+        // ===== Plantillas de habitación (3 diseños con conectividad verificada) =====
+        const templates = [
+            // --- Plantilla 0: Abierta ---
+            // Un obstáculo central grande. Camino perimetral alrededor.
+            {
+                name: 'abierta',
+                internalWalls: [
+                    { x: 512, y: 384, w: 140, h: 140 }
+                ],
+                relics: [
+                    { x: 200, y: 200 },
+                    { x: 824, y: 200 },
+                    { x: 200, y: 568 },
+                    { x: 824, y: 568 },
+                    { x: 512, y: 150 },
+                    { x: 512, y: 620 }
+                ],
+                exit: { x: 900, y: 700 },
+                playerStart: { x: 512, y: 650 },
+                enemyStarts: [
+                    { x: 300, y: 300 }, { x: 700, y: 300 },
+                    { x: 300, y: 500 }, { x: 700, y: 500 }
+                ]
+            },
+            // --- Plantilla 1: Pasillo ---
+            // Dos paredes verticales con huecos: se pasa de izq a media por debajo de la primera,
+            // y de media a der por encima de la segunda.
+            {
+                name: 'pasillo',
+                internalWalls: [
+                    { x: 340, y: 240, w: 30, h: 320 },
+                    { x: 684, y: 528, w: 30, h: 320 }
+                ],
+                relics: [
+                    { x: 150, y: 150 },
+                    { x: 150, y: 600 },
+                    { x: 512, y: 150 },
+                    { x: 512, y: 620 },
+                    { x: 850, y: 150 },
+                    { x: 850, y: 600 }
+                ],
+                exit: { x: 900, y: 700 },
+                playerStart: { x: 150, y: 384 },
+                enemyStarts: [
+                    { x: 512, y: 384 }, { x: 850, y: 384 },
+                    { x: 512, y: 150 }, { x: 850, y: 600 }
+                ]
+            },
+            // --- Plantilla 2: Cuadrantes ---
+            // Cuatro obstáculos en las esquinas interiores, dejando un camino perimetral
+            // y un hueco central accesible desde arriba/abajo.
+            {
+                name: 'cuadrantes',
+                internalWalls: [
+                    { x: 300, y: 240, w: 120, h: 120 },
+                    { x: 724, y: 240, w: 120, h: 120 },
+                    { x: 300, y: 528, w: 120, h: 120 },
+                    { x: 724, y: 528, w: 120, h: 120 }
+                ],
+                relics: [
+                    { x: 200, y: 200 },
+                    { x: 824, y: 200 },
+                    { x: 200, y: 568 },
+                    { x: 824, y: 568 },
+                    { x: 512, y: 100 },
+                    { x: 512, y: 384 }
+                ],
+                exit: { x: 512, y: 700 },
+                playerStart: { x: 512, y: 100 },
+                enemyStarts: [
+                    { x: 400, y: 384 }, { x: 600, y: 384 },
+                    { x: 512, y: 250 }, { x: 512, y: 520 }
+                ]
+            }
+        ];
+
+        // --- Elegir plantilla sin repetir consecutivamente ---
+        let chosenIndex;
+        if (templates.length === 1) {
+            chosenIndex = 0;
+        } else {
+            let attempts = 0;
+            do {
+                chosenIndex = Math.floor(Math.random() * templates.length);
+                attempts++;
+            } while (chosenIndex === this.lastTemplateIndex && attempts < 5);
+        }
+        this.lastTemplateIndex = chosenIndex;
+        const t = templates[chosenIndex];
+
         // --- Paredes del recinto ---
         const topWall = this.add.rectangle(width / 2, wallThickness / 2, width, wallThickness, wallColor);
         const bottomWall = this.add.rectangle(width / 2, height - wallThickness / 2, width, wallThickness, wallColor);
@@ -99,37 +190,26 @@ export class Game extends Scene
 
         this.walls = [topWall, bottomWall, leftWall, rightWall];
 
-        // --- Obstáculos internos (dificultad creciente) ---
-        const obstacleCount = 1 + Math.floor((this.currentStage - 1) / 2);
-        for (let i = 0; i < obstacleCount; i++) {
-            const ox = 180 + i * 180;
-            const oy = 200 + (i % 2) * 280;
-            const obs = this.add.rectangle(ox, oy, 90, 90, 0x2a2a4e);
+        // --- Paredes internas de la plantilla ---
+        t.internalWalls.forEach((def) => {
+            const obs = this.add.rectangle(def.x, def.y, def.w, def.h, 0x2a2a4e);
             this.physics.add.existing(obs);
             obs.body.setImmovable(true);
             obs.body.allowGravity = false;
             this.walls.push(obs);
-        }
+        });
 
         // --- Colisiones jugador <-> paredes ---
         this.walls.forEach((wall) => {
             this.physics.add.collider(this.player, wall);
         });
 
-        // --- Reliquias (6, accesibles) ---
+        // --- Reliquias (6, accesibles dentro de la plantilla) ---
         const relicColor = 0xffd700;
         const relicRadius = 12;
-        const relicPositions = [
-            { x: 200, y: 200 },
-            { x: width - 200, y: 200 },
-            { x: 200, y: height - 200 },
-            { x: width - 200, y: height - 200 },
-            { x: width / 2, y: height / 2 },
-            { x: width / 2, y: 220 }
-        ];
 
         this.relics = [];
-        relicPositions.forEach((pos) => {
+        t.relics.forEach((pos) => {
             const relic = this.add.circle(pos.x, pos.y, relicRadius, relicColor);
             this.physics.add.existing(relic);
             relic.body.setImmovable(true);
@@ -138,29 +218,28 @@ export class Game extends Scene
             this.relics.push(relic);
         });
 
-        // --- Salida (inicialmente bloqueada, cerca del borde inferior) ---
-        this.exit = this.add.rectangle(width / 2, height - 80, 48, 48, 0x888888);
+        // --- Salida (inicialmente bloqueada, posición definida por la plantilla) ---
+        this.exit = this.add.rectangle(t.exit.x, t.exit.y, 48, 48, 0x888888);
         this.physics.add.existing(this.exit);
         this.exit.body.setImmovable(true);
         this.exit.body.allowGravity = false;
         this.physics.add.overlap(this.player, this.exit, this.checkExit, null, this);
 
-        // --- Enemigos (cantidad según etapa, persecución limitada) ---
+        // --- Enemigos (cantidad según etapa, posiciones definidas por la plantilla) ---
         this.enemies = [];
-        const enemyCount = this.currentStage;
+        const enemyCount = Math.min(this.currentStage, t.enemyStarts.length);
         const detectionRadius = 160;
         const baseSpeed = 40 + (this.currentStage - 1) * 8;
 
         for (let i = 0; i < enemyCount; i++) {
-            const ex = 180 + i * 220;
-            const ey = 180 + (i % 2) * 260;
-            const enemy = this.add.rectangle(ex, ey, 28, 28, 0xff0000);
+            const start = t.enemyStarts[i];
+            const enemy = this.add.rectangle(start.x, start.y, 28, 28, 0xff0000);
             this.physics.add.existing(enemy);
             enemy.body.setImmovable(false);
             enemy.body.allowGravity = false;
 
-            enemy.patrolStart = { x: ex, y: ey };
-            enemy.patrolEnd = { x: ex + 120, y: ey };
+            enemy.patrolStart = { x: start.x, y: start.y };
+            enemy.patrolEnd = { x: start.x + 120, y: start.y };
             enemy.patrolDir = 1;
             enemy.speed = baseSpeed;
             enemy.detectionRadius = detectionRadius;
@@ -171,8 +250,8 @@ export class Game extends Scene
             this.enemies.push(enemy);
         }
 
-        // Reposicionar jugador al centro y actualizar HUD
-        this.player.setPosition(width / 2, height / 2);
+        // Reposicionar jugador según plantilla y actualizar HUD
+        this.player.setPosition(t.playerStart.x, t.playerStart.y);
         this.player.body.setVelocity(0, 0);
         this.player.setAlpha(1);
         this.invulnerable = false;
