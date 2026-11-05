@@ -1,11 +1,19 @@
 import { Scene, Input } from 'phaser';
 import LevelGenerator, { WALL_THICKNESS } from '../levels/LevelGenerator.js';
+import { ES } from '../../enums/languages';
+import { KEYS } from '../../enums/keys';
+import { getPhrase } from '../../services/translations';
 
 export class Game extends Scene
 {
     constructor ()
     {
         super('Game');
+    }
+
+    init (data)
+    {
+        this.language = (data && data.language) || ES;
     }
 
     preload ()
@@ -49,19 +57,19 @@ export class Game extends Scene
         this.colliders = [];
 
         // ===== HUD =====
-        this.livesText = this.add.text(16, 16, 'Vidas: 3', {
+        this.livesText = this.add.text(16, 16, `${getPhrase(KEYS.VIDAS)}: ${this.lives}`, {
             fontSize: '24px',
             fill: '#ffffff'
         }).setDepth(100).setScrollFactor(0);
-        this.relicsText = this.add.text(16, 48, 'Reliquias: 0/6 | Global: 0/25', {
+        this.relicsText = this.add.text(16, 48, `${getPhrase(KEYS.RELIQUIAS)}: ${this.relicsCollectedThisLevel}/${this.totalRelicsPerLevel} | Global: ${this.relicsCollectedGlobal}/${this.totalRelicsGlobal}`, {
             fontSize: '24px',
             fill: '#ffffff'
         }).setDepth(100).setScrollFactor(0);
-        this.scoreText = this.add.text(16, 80, 'Puntuación: 0', {
+        this.scoreText = this.add.text(16, 80, `${getPhrase(KEYS.PUNTUACION)}: ${this.score}`, {
             fontSize: '24px',
             fill: '#ffffff'
         }).setDepth(100).setScrollFactor(0);
-        this.stageText = this.add.text(16, 112, 'Nivel: 1', {
+        this.stageText = this.add.text(16, 112, `${getPhrase(KEYS.NIVEL)}: ${this.currentLevel}`, {
             fontSize: '24px',
             fill: '#ffffff'
         }).setDepth(100).setScrollFactor(0);
@@ -292,7 +300,7 @@ export class Game extends Scene
 
         // Mostrar aviso si ya se alcanzó el objetivo global en niveles previos
         if (this.victoryAchieved && !this.victoryFlag) {
-            this.objectiveText.setText('¡Objetivo cumplido! Encontrá la salida para ganar');
+            this.objectiveText.setText(getPhrase(KEYS.OBJETIVO_CUMPLIDO_ENCONTRA_LA_SALIDA_PARA_GANAR));
         } else if (!this.victoryAchieved) {
             this.objectiveText.setText('');
         }
@@ -336,10 +344,10 @@ export class Game extends Scene
 
     updateHUD ()
     {
-        this.livesText.setText(`Vidas: ${this.lives}`);
-        this.relicsText.setText(`Reliquias: ${this.relicsCollectedThisLevel}/${this.totalRelicsPerLevel} | Global: ${this.relicsCollectedGlobal}/${this.totalRelicsGlobal}`);
-        this.scoreText.setText(`Puntuación: ${this.score}`);
-        this.stageText.setText(`Nivel: ${this.currentLevel}`);
+        this.livesText.setText(`${getPhrase(KEYS.VIDAS)}: ${this.lives}`);
+        this.relicsText.setText(`${getPhrase(KEYS.RELIQUIAS)}: ${this.relicsCollectedThisLevel}/${this.totalRelicsPerLevel} | Global: ${this.relicsCollectedGlobal}/${this.totalRelicsGlobal}`);
+        this.scoreText.setText(`${getPhrase(KEYS.PUNTUACION)}: ${this.score}`);
+        this.stageText.setText(`${getPhrase(KEYS.NIVEL)}: ${this.currentLevel}`);
     }
 
     collectRelic (player, relic)
@@ -356,7 +364,7 @@ export class Game extends Scene
         // Aviso cuando se alcanza el objetivo global de 25 reliquias
         if (this.relicsCollectedGlobal >= this.totalRelicsGlobal && !this.victoryAchieved) {
             this.victoryAchieved = true;
-            this.objectiveText.setText('¡Objetivo cumplido! Encontrá la salida para ganar');
+            this.objectiveText.setText(getPhrase(KEYS.OBJETIVO_CUMPLIDO_ENCONTRA_LA_SALIDA_PARA_GANAR));
         }
 
         // La puerta se abre solo al completar las 6 reliquias del nivel actual
@@ -376,7 +384,7 @@ export class Game extends Scene
         // Victoria definitiva: nivel completado Y contador global >= 25
         if (this.relicsCollectedGlobal >= this.totalRelicsGlobal) {
             this.victoryFlag = true;
-            this.scene.start('Victory', { score: this.score, relics: this.relicsCollectedGlobal });
+            this.scene.start('Victory', { score: this.score, relics: this.relicsCollectedGlobal, language: this.language });
             return;
         }
 
@@ -427,7 +435,7 @@ export class Game extends Scene
         if (this.gameOverFlag) {
             this.deathTimer -= delta;
             if (this.deathTimer <= 0) {
-                this.scene.start('GameOver', { score: this.score });
+                this.scene.start('GameOver', { score: this.score, language: this.language });
             }
             return;
         }

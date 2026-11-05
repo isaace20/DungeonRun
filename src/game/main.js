@@ -2,6 +2,7 @@ import { Game as MainGame } from './scenes/Game';
 import { Menu } from './scenes/Menu';
 import { GameOver } from './scenes/GameOver';
 import { Victory } from './scenes/Victory';
+import { Preload } from './scenes/Preload';
 import { AUTO, Scale, Game } from 'phaser';
 
 // Find out more information about the Game Config at:
@@ -23,6 +24,7 @@ const config = {
         }
     },
     scene: [
+        Preload,
         Menu,
         MainGame,
         GameOver,

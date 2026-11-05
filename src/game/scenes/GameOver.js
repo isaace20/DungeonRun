@@ -1,4 +1,7 @@
 import { Scene } from 'phaser';
+import { ES } from '../../enums/languages';
+import { KEYS } from '../../enums/keys';
+import { getPhrase } from '../../services/translations';
 
 const STORAGE_KEY = 'dungeonRun_scores';
 
@@ -12,6 +15,7 @@ export class GameOver extends Scene
     init (data)
     {
         this.finalScore = data && data.score !== undefined ? data.score : 0;
+        this.language = (data && data.language) || ES;
     }
 
     create ()
@@ -23,7 +27,7 @@ export class GameOver extends Scene
         const bestScores = this.saveScore(this.finalScore);
 
         // Título
-        this.add.text(width / 2, height / 5, 'FIN DE PARTIDA', {
+        this.add.text(width / 2, height / 5, getPhrase(KEYS.FIN_DE_PARTIDA), {
             fontSize: '56px',
             fill: '#ff0000',
             stroke: '#000000',
@@ -31,13 +35,13 @@ export class GameOver extends Scene
         }).setOrigin(0.5);
 
         // Puntuación final
-        this.add.text(width / 2, height / 2 - 60, `Puntuación final: ${this.finalScore}`, {
+        this.add.text(width / 2, height / 2 - 60, `${getPhrase(KEYS.PUNTUACION_FINAL)}: ${this.finalScore}`, {
             fontSize: '32px',
             fill: '#ffffff'
         }).setOrigin(0.5);
 
         // Récords locales
-        this.add.text(width / 2, height / 2, 'Mejores resultados (local)', {
+        this.add.text(width / 2, height / 2, getPhrase(KEYS.MEJORES_RESULTADOS_LOCAL), {
             fontSize: '24px',
             fill: '#ffff00'
         }).setOrigin(0.5);
@@ -50,7 +54,7 @@ export class GameOver extends Scene
         });
 
         // Botón volver a jugar
-        const btnRestart = this.add.text(width / 2, height * 0.82, 'VOLVER A JUGAR', {
+        const btnRestart = this.add.text(width / 2, height * 0.82, getPhrase(KEYS.VOLVER_A_JUGAR), {
             fontSize: '32px',
             fill: '#00ff00',
             backgroundColor: '#000000',
@@ -58,7 +62,7 @@ export class GameOver extends Scene
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
         btnRestart.on('pointerdown', () => {
-            this.scene.start('Game');
+            this.scene.start('Game', { language: this.language });
         });
     }
 
