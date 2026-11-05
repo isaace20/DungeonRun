@@ -1,5 +1,5 @@
 import { Scene, Input } from 'phaser';
-import LevelGenerator from '../levels/LevelGenerator.js';
+import LevelGenerator, { WALL_THICKNESS } from '../levels/LevelGenerator.js';
 
 export class Game extends Scene
 {
@@ -104,7 +104,7 @@ export class Game extends Scene
         const width = this.width;
         const height = this.height;
         const wallColor = 0x4ecca3;
-        const wallThickness = 32;
+        const wallThickness = WALL_THICKNESS;
 
         // --- Generar mapa procedural (8 habitaciones, cuadrícula 4×2) ---
         const generator = new LevelGenerator({
@@ -173,8 +173,11 @@ export class Game extends Scene
             }
 
             // Paredes internas (obstáculos dentro de la habitación)
+            // Las plantillas definen (x, y) como esquina superior-izquierda;
+            // Phaser centra el rectángulo, así que hay que sumar w/2 y h/2
+            // para dibujar la pared en el mismo lugar que validó LevelGenerator.
             room.internalWalls.forEach((def) => {
-                const obs = this.add.rectangle(ax + def.x, ay + def.y, def.w, def.h, 0x2a2a4e);
+                const obs = this.add.rectangle(ax + def.x + def.w / 2, ay + def.y + def.h / 2, def.w, def.h, 0x2a2a4e);
                 this.physics.add.existing(obs);
                 obs.body.setImmovable(true);
                 obs.body.allowGravity = false;
@@ -222,13 +225,17 @@ export class Game extends Scene
             const enemyCountForRoom = Math.min(this.currentLevel, room.enemyPositions.length);
             for (let i = 0; i < enemyCountForRoom; i++) {
                 const start = room.enemyPositions[i];
+                // La patrulla ya viene validada por LevelGenerator (no cruza paredes ni sale de la habitación).
+                const patrol = (room.enemyPatrols && room.enemyPatrols[i]) || null;
                 const enemy = this.add.rectangle(room.absX + start.x, room.absY + start.y, 28, 28, 0xff0000);
                 this.physics.add.existing(enemy);
                 enemy.body.setImmovable(false);
                 enemy.body.allowGravity = false;
 
                 enemy.patrolStart = { x: room.absX + start.x, y: room.absY + start.y };
-                enemy.patrolEnd = { x: room.absX + start.x + 120, y: room.absY + start.y };
+                enemy.patrolEnd = patrol
+                    ? { x: room.absX + patrol.end.x, y: room.absY + patrol.end.y }
+                    : { x: room.absX + start.x + 120, y: room.absY + start.y };
                 enemy.patrolDir = 1;
                 enemy.speed = baseSpeed;
                 enemy.detectionRadius = detectionRadius;
@@ -250,13 +257,10 @@ export class Game extends Scene
         this.player.setAlpha(1);
         this.invulnerable = false;
 
-        // Evitar que el jugador aparezca encima de un enemigo
-        this.enemies.forEach((enemy) => {
-            const dist = Math.hypot(this.player.x - enemy.x, this.player.y - enemy.y);
-            if (dist < 60) {
-                this.player.setPosition(this.player.x + 70, this.player.y + 70);
-            }
-        });
+        // El generador ya garantiza que ningún enemigo quede a menos de
+        // SAFE_PLAYER_DISTANCE del jugador en la habitación inicial, y que
+        // ningún spawn quede dentro de una pared. No se mueve al jugador
+        // de forma arbitraria (eso podía meterlo dentro de un bloque).
 
         // Resetear solo el contador del nivel actual; el global persiste entre niveles
         this.relicsCollectedThisLevel = 0;

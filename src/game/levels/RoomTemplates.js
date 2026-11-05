@@ -18,6 +18,10 @@
  *  - exitPosition: posición de la salida si esta habitación la contiene
  *  - enemyPositions: posiciones iniciales de enemigos (NO dentro de paredes ni sobre el jugador)
  *  - playerStart: posición inicial del jugador (solo usa la del inicio)
+ *
+ * Todas las posiciones fueron corregidas para quedar completamente dentro del
+ * área jugable (pared perimetral de 32 px) y fuera de las paredes internas,
+ * teniendo en cuenta el tamaño real de cada objeto. Ver scripts/verify-spawns.mjs.
  */
 
 const RoomTemplates = {
@@ -29,14 +33,14 @@ const RoomTemplates = {
       internalWalls: [],
       doors: ['right'],
       relicPositions: [
-        { x: 60, y: 60 },
-        { x: 180, y: 120 }
+        { x: 96, y: 48 },
+        { x: 180, y: 132 }
       ],
-      exitPosition: { x: 220, y: 90 },
+      exitPosition: { x: 180, y: 58 },
       enemyPositions: [
-        { x: 200, y: 150 }
+        { x: 120, y: 90 }
       ],
-      playerStart: { x: 120, y: 90 }
+      playerStart: { x: 60, y: 90 }
     },
     {
       id: 'small-b',
@@ -47,14 +51,14 @@ const RoomTemplates = {
       ],
       doors: ['right', 'bottom'],
       relicPositions: [
-        { x: 40, y: 140 },
-        { x: 200, y: 40 }
+        { x: 52, y: 48 },
+        { x: 188, y: 132 }
       ],
-      exitPosition: { x: 200, y: 160 },
+      exitPosition: { x: 180, y: 56 },
       enemyPositions: [
-        { x: 120, y: 40 }
+        { x: 120, y: 52 }
       ],
-      playerStart: { x: 120, y: 140 }
+      playerStart: { x: 60, y: 120 }
     }
   ],
 
@@ -73,10 +77,10 @@ const RoomTemplates = {
         { x: 280, y: 60 },
         { x: 300, y: 200 }
       ],
-      exitPosition: { x: 340, y: 135 },
+      exitPosition: { x: 300, y: 135 },
       enemyPositions: [
         { x: 100, y: 200 },
-        { x: 320, y: 100 }
+        { x: 180, y: 220 }
       ],
       playerStart: { x: 80, y: 135 }
     },
@@ -94,10 +98,10 @@ const RoomTemplates = {
         { x: 300, y: 60 },
         { x: 60, y: 200 }
       ],
-      exitPosition: { x: 180, y: 250 },
+      exitPosition: { x: 120, y: 200 },
       enemyPositions: [
-        { x: 300, y: 60 },
-        { x: 60, y: 200 }
+        { x: 180, y: 120 },
+        { x: 310, y: 100 }
       ],
       playerStart: { x: 180, y: 200 }
     }
@@ -119,13 +123,13 @@ const RoomTemplates = {
         { x: 380, y: 80 },
         { x: 400, y: 280 },
         { x: 300, y: 300 },
-        { x: 150, y: 300 }
+        { x: 180, y: 300 }
       ],
-      exitPosition: { x: 460, y: 180 },
+      exitPosition: { x: 420, y: 180 },
       enemyPositions: [
-        { x: 100, y: 100 },
-        { x: 380, y: 100 },
-        { x: 400, y: 300 }
+        { x: 150, y: 180 },
+        { x: 380, y: 160 },
+        { x: 360, y: 300 }
       ],
       playerStart: { x: 240, y: 300 }
     },
@@ -145,11 +149,11 @@ const RoomTemplates = {
         { x: 420, y: 300 },
         { x: 240, y: 180 }
       ],
-      exitPosition: { x: 240, y: 340 },
+      exitPosition: { x: 230, y: 300 },
       enemyPositions: [
         { x: 100, y: 300 },
         { x: 380, y: 300 },
-        { x: 240, y: 60 }
+        { x: 240, y: 140 }
       ],
       playerStart: { x: 240, y: 60 }
     }
