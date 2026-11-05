@@ -81,8 +81,17 @@ export class Game extends Scene
             S: Input.Keyboard.KeyCodes.S,
             D: Input.Keyboard.KeyCodes.D
         });
+        this.shiftKey = this.input.keyboard.addKey(Input.Keyboard.KeyCodes.SHIFT);
 
-        this.speed = 180;
+        this.speed = 225; // 180 * 1.25
+
+        // ===== Dash del jugador =====
+        this.dashSpeed = this.speed * 2.5; // velocidad del dash = 2.5x movimiento
+        this.dashDuration = 150; // ms de duración de la ráfaga
+        this.dashCooldown = 1000; // ms de cooldown
+        this.dashReadyAt = 0;
+        this.dashingUntil = 0;
+        this.dashDir = { x: 1, y: 0 };
 
         // ===== Jugador =====
         this.player = this.add.rectangle(this.width / 2, this.height / 2, 32, 32, 0xffffff);
@@ -218,8 +227,9 @@ export class Game extends Scene
 
         // --- Enemigos (cantidad según nivel, posiciones definidas por plantilla) ---
         this.enemies = [];
-        const detectionRadius = 160;
-        const baseSpeed = 40 + (this.currentLevel - 1) * 8;
+        const detectionRadius = 200; // 160 * 1.25
+        // Velocidad base enemiga (1.25 * 1.2 = 1.5)
+        const baseSpeed = (40 + (this.currentLevel - 1) * 8) * 1.5;
 
         rooms.forEach((room) => {
             const enemyCountForRoom = Math.min(this.currentLevel, room.enemyPositions.length);
@@ -240,6 +250,15 @@ export class Game extends Scene
                 enemy.speed = baseSpeed;
                 enemy.detectionRadius = detectionRadius;
                 enemy.homeRoom = room.index;
+                // Dash enemigo (aleatorio, mismo cooldown que el jugador)
+                enemy.dashReadyAt = 0;
+                enemy.dashingUntil = 0;
+                enemy.dashType = 'straight';
+                enemy.dashPhase = 0;
+                // Recorrido del dash enemigo: velocidad 3.75x y duración 2.5x la del jugador
+                // (recorrido = 3.75 * 2.5, bastante más largo que antes)
+                enemy.dashSpeedMultiplier = 3.75;
+                enemy.dashDurationMultiplier = 2.5;
 
                 const enemyWallCollider = this.physics.add.collider(enemy, this.walls);
                 const enemyPlayerCollider = this.physics.add.collider(this.player, enemy, this.handleEnemyContact, null, this);
@@ -261,6 +280,10 @@ export class Game extends Scene
         // SAFE_PLAYER_DISTANCE del jugador en la habitación inicial, y que
         // ningún spawn quede dentro de una pared. No se mueve al jugador
         // de forma arbitraria (eso podía meterlo dentro de un bloque).
+
+        // Resetear el dash del jugador al empezar cada nivel
+        this.dashReadyAt = 0;
+        this.dashingUntil = 0;
 
         // Resetear solo el contador del nivel actual; el global persiste entre niveles
         this.relicsCollectedThisLevel = 0;
@@ -419,14 +442,27 @@ export class Game extends Scene
         if (this.cursors.down.isDown || this.wasd.S.isDown) vy = 1;
 
         const length = Math.sqrt(vx * vx + vy * vy);
-        if (length > 0) {
+        const moving = length > 0;
+        if (moving) {
             vx = (vx / length) * this.speed;
             vy = (vy / length) * this.speed;
+            this.dashDir = { x: vx / this.speed, y: vy / this.speed };
         } else {
             vx = 0;
             vy = 0;
         }
-        this.player.body.setVelocity(vx, vy);
+
+        // ===== Dash del jugador (Shift, cooldown 1 s) =====
+        if (this.shiftKey.isDown && time >= this.dashReadyAt && time >= this.dashingUntil) {
+            this.dashingUntil = time + this.dashDuration;
+            this.dashReadyAt = this.dashingUntil + this.dashCooldown;
+        }
+
+        if (time < this.dashingUntil) {
+            this.player.body.setVelocity(this.dashDir.x * this.dashSpeed, this.dashDir.y * this.dashSpeed);
+        } else {
+            this.player.body.setVelocity(vx, vy);
+        }
 
         // ===== Invulnerabilidad (parpadeo visual) =====
         if (this.invulnerable) {
@@ -476,6 +512,43 @@ export class Game extends Scene
             const dx = targetX - enemy.x;
             const dy = targetY - enemy.y;
             const distToTarget = Math.sqrt(dx * dx + dy * dy);
+
+            // --- Dash de enemigos: solo si te está persiguiendo, cooldown 1 s,
+            // uso aleatorio y tipo aleatorio (recto o parábola).
+            const dashing = time < enemy.dashingUntil;
+            if (inRange && !dashing && time >= enemy.dashReadyAt) {
+                // 30% por segundo, independiente del framerate
+                const chance = 1 - Math.pow(1 - 0.3, delta / 1000);
+                if (Math.random() < chance) {
+                    enemy.dashType = Math.random() < 0.5 ? 'straight' : 'parabola';
+                    enemy.dashingUntil = time + this.dashDuration * (enemy.dashDurationMultiplier || 1);
+                    enemy.dashReadyAt = enemy.dashingUntil + this.dashCooldown;
+                    enemy.dashPhase = Math.random() * Math.PI * 2;
+                    enemy.dashDir = distToTarget > 0
+                        ? { x: dx / distToTarget, y: dy / distToTarget }
+                        : { x: 1, y: 0 };
+                }
+            }
+
+            if (dashing) {
+                // Velocidad de dash por enemigo: 3.75x su propia velocidad
+                // Duración 2.5x la del jugador → recorrido mucho más largo.
+                const dashSpeed = enemy.speed * (enemy.dashSpeedMultiplier || 3.75);
+                if (enemy.dashType === 'parabola') {
+                    // Parábola: avanzás hacia el jugador + componente perpendicular sinusoidal.
+                    enemy.dashPhase += (delta / 1000) * Math.PI * 2;
+                    const perp = Math.sin(enemy.dashPhase) * 0.5;
+                    let vx = enemy.dashDir.x * dashSpeed;
+                    let vy = enemy.dashDir.y * dashSpeed;
+                    vx += -enemy.dashDir.y * perp * dashSpeed;
+                    vy += enemy.dashDir.x * perp * dashSpeed;
+                    enemy.body.setVelocity(vx, vy);
+                } else {
+                    // Recto: directo hacia donde estabas al activar el dash
+                    enemy.body.setVelocity(enemy.dashDir.x * dashSpeed, enemy.dashDir.y * dashSpeed);
+                }
+                return;
+            }
 
             if (distToTarget > 5) {
                 const vx = (dx / distToTarget) * enemy.speed;
